@@ -36,7 +36,11 @@ if(existingUseraByEmail.isVerified){
 
 }
 else{
-    
+  const hashedPassword=await bcrypt.hash(password,10)
+  existingUseraByEmail.password=hashedPassword
+  existingUseraByEmail.verifyCode=verifyCode
+  existingUseraByEmail.verifyCodeExpiry=new Date(Date.now()+3600000)
+    await existingUseraByEmail.save()
 }
 
 
@@ -57,6 +61,8 @@ else{
       });
       await newUser.save();
     }
+
+    
     //now send verification mail to the new user
     const emailResponse = await sendVerificationEmail(
       email,
