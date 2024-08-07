@@ -1,54 +1,53 @@
-import dbConnect from "@/lib/dbConnect";
-import UserModel from "@/models/User";
-import bcrypt from "bcryptjs";
-import { sendVerificationEmail } from "@/heplers/sendVerificationEmail";
-export async function POST(request: Request /*both comes from nextjs*/) {
+import dbConnect from '@/lib/dbConnect';
+import UserModel from '@/models/User';
+import bcrypt from 'bcryptjs';
+import { sendVerificationEmail } from '@/heplers/sendVerificationEmail';
+
+export async function POST(request: Request) {
   await dbConnect();
+
   try {
     const { username, email, password } = await request.json();
-    const existingUserVerifiedByUsername = await UserModel.findOne({
+
+    const existingVerifiedUserByUsername = await UserModel.findOne({
       username,
       isVerified: true,
     });
 
-    if (existingUserVerifiedByUsername) {
-      return (
-        Response.json({
+    if (existingVerifiedUserByUsername) {
+      return Response.json(
+        {
           success: false,
-          message: "oops! Username already taken ",
-        }),
+          message: 'Username is already taken',
+        },
         { status: 400 }
       );
     }
 
-    const existingUseraByEmail = await UserModel.findOne({ email });
-    const verifyCode = Math.floor(100000 + Math.random() * 900000).toString();
+    const existingUserByEmail = await UserModel.findOne({ email });
+    let verifyCode = Math.floor(100000 + Math.random() * 900000).toString();
 
-    if (existingUseraByEmail) {
-if(existingUseraByEmail.isVerified){
-    return Response.json(
-        {
-          success: false,
-          message: "user already exist with this email",
-        },
-        { status: 400 }
-      );
-
-}
-else{
-  const hashedPassword=await bcrypt.hash(password,10)
-  existingUseraByEmail.password=hashedPassword
-  existingUseraByEmail.verifyCode=verifyCode
-  existingUseraByEmail.verifyCodeExpiry=new Date(Date.now()+3600000)
-    await existingUseraByEmail.save()
-}
-
-
-
+    if (existingUserByEmail) {
+      if (existingUserByEmail.isVerified) {
+        return Response.json(
+          {
+            success: false,
+            message: 'User already exists with this email',
+          },
+          { status: 400 }
+        );
+      } else {
+        const hashedPassword = await bcrypt.hash(password, 10);
+        existingUserByEmail.password = hashedPassword;
+        existingUserByEmail.verifyCode = verifyCode;
+        existingUserByEmail.verifyCodeExpiry = new Date(Date.now() + 3600000);
+        await existingUserByEmail.save();
+      }
     } else {
-      const hashedPassword = bcrypt.hash(password, 10);
+      const hashedPassword = await bcrypt.hash(password, 10);
       const expiryDate = new Date();
       expiryDate.setHours(expiryDate.getHours() + 1);
+
       const newUser = new UserModel({
         username,
         email,
@@ -59,11 +58,11 @@ else{
         isAcceptingMessages: true,
         messages: [],
       });
+
       await newUser.save();
     }
 
-    
-    //now send verification mail to the new user
+    // Send verification email
     const emailResponse = await sendVerificationEmail(
       email,
       username,
@@ -82,20 +81,18 @@ else{
     return Response.json(
       {
         success: true,
-        message: "User registered succsessfully,please verify your email",
+        message: 'User registered successfully. Please verify your account.',
       },
       { status: 201 }
     );
   } catch (error) {
-    console.log("error regestring user", error);
+    console.error('Error registering user:', error);
     return Response.json(
       {
         success: false,
-        message: "Error registering user",
+        message: 'Error registering user',
       },
-      {
-        status: 500,
-      }
+      { status: 500 }
     );
   }
 }
